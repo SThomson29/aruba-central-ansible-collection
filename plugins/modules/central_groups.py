@@ -72,10 +72,9 @@ options:
         type: list
     group_attributes:
         description:
-            - Group attributes to define group password and a boolean
-              determining whether it is a template group or UI group OR
-              dictionary containing two booleans to determine the allowable
-              templates (wired and/or wireless) for the template group
+            - Group attributes to define group name, a boolean for template groups,
+              group architecture, device types, OS types and even device roles. This
+              updated version of attributes utilises V3 of the Central API.
             - Used with actions I(create) and I(update)
         required: false
         type: dict
@@ -122,10 +121,16 @@ EXAMPLES = """
     action: create
     group_name: new-test-group
     group_attributes:
-      group_password: admin@12345
       template_group:
-        wired: True
+        wired: false
         wireless: False
+    architecture: AOS10
+    device_types: AccessPoints
+    ap_role: Standard
+    gw_role: Standard
+    switch_type: AOS_CX
+    monitor_mode: AOS_CX
+    new_central: True
 
 - name: Update an existing group (only available for UI groups)
   central_groups:
@@ -218,7 +223,7 @@ def create_group(central_api, group_name, group_attributes):
     Creates a new template or UI group based on group_attributes
     '''
     if group_name and group_attributes is not None:
-        path = "/configuration/v2/groups"
+        path = "/configuration/v3/groups"
         data = {
             "group": group_name,
             "group_attributes": {
@@ -226,7 +231,17 @@ def create_group(central_api, group_name, group_attributes):
                 "template_info": {
                     "Wired": group_attributes['template_group']['wired'],
                     "Wireless": group_attributes['template_group']['wireless']
-                }}}
+                },
+                "group_properties":{
+                    "AllowedDevTypes": group_attributes['device_type']['Gateways','AccessPoints','Switches','SD_WAN_Gateway'],
+                    "Architecture": group_attributes['architecture']['Instant','AOS10','SD_WAN_Gateway'],
+                    "ApNetworkRole": group_attributes['ap_role']['group_properties']['Standard','Microbranch'],
+                    "GwNetworkRole": group_attributes['gw_role']['Branchgateway','VPNConcentrator','WLANGateway'],
+                    "AllowedSwitchTypes": group_attributes['switch_type']['group_properties']['AOS_S','AOS_CX'],
+                    "MonitorOnly:": group_attributes['monitor_mode']['group_propeties']['AOS_S','AOS_CX'],
+                    "NewCentral": group_attributes['new_central']['group_properties']['True','False']
+                }
+                }}
         headers = central_api.get_headers(False, "post")
         result = central_api.post(path=path, headers=headers, data=data)
         return result
@@ -238,7 +253,7 @@ def update_group(central_api, group_name, group_attributes):
     Updates an existing UI group to change its password
     '''
     if group_name and group_attributes is not None:
-        path = "/configuration/v1/groups/" + str(group_name)
+        path = "/configuration/v2/groups/" + str(group_name)
         data = group_attributes
         headers = central_api.get_headers(False, "post")
         result = central_api.patch(path=path, headers=headers, data=data)
