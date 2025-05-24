@@ -125,7 +125,7 @@ EXAMPLES = """
         wired: false
         wireless: False
     architecture: AOS10
-    device_types: AccessPoints
+    device_type: AccessPoints
     ap_role: Standard
     gw_role: Standard
     switch_type: AOS_CX
