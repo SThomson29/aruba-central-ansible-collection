@@ -350,7 +350,7 @@ def main():
                     architecture=dict(type="str", choices=["Instant", "AOS10", "SD_WAN_Gateway"], required=False),
                     device_type=dict(type="list", choices=["Gateways", "AccessPoints", "Switches", "SD_WAN_Gateway"], required=True),
                     ap_role=dict(type="str", choices=["Standard", "Microbranch"], required=False),
-                    gw_role=dict(type="str", choices=["Branchgateway", "VPNConcentrator", "WLANGateway"], required=False),
+                    gw_role=dict(type="str", choices=["BranchGateway", "VPNConcentrator", "WLANGateway"], required=False),
                     switch_type=dict(type="list", choices=["AOS_S", "AOS_CX"], required=False),
                     monitor_mode=dict(type="list", choices=["AOS_S", "AOS_CX"], required=False),
                     new_central=dict(type="str", choices=["True", "False"], required=False),
