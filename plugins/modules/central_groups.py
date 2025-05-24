@@ -158,6 +158,15 @@ from ansible.module_utils.basic import AnsibleModule  # NOQA
 # from ansible.module_utils.central_http import CentralApi  # NOQA
 from ansible_collections.arubanetworks.aruba_central.plugins.module_utils.central_http import CentralApi  # NOQA
 
+def remove_nulls(data):
+    parsed_data = {}
+    for key, value in data.items():
+        if value is not None:
+            if isinstance(value, dict):
+                parsed_data[key] = remove_nulls(value)
+            else:
+                parsed_data[key] = value
+    return parsed_data
 
 def error_msg(method):
     '''
@@ -217,7 +226,6 @@ def clone(central_api, group_name, clone_from_group):
         return result
     return error_msg("clone")
 
-
 def create_group(central_api, group_name, group_attributes):
     '''
     Creates a new template or UI group based on group_attributes
@@ -227,23 +235,22 @@ def create_group(central_api, group_name, group_attributes):
         data = {
             "group": group_name,
             "group_attributes": {
-                "group_password": group_attributes['group_password'],
                 "template_info": {
-                    "Wired": group_attributes['template_group']['wired'],
-                    "Wireless": group_attributes['template_group']['wireless']
+                    "Wired": group_attributes['template_info']['wired'],
+                    "Wireless": group_attributes['template_info']['wireless']
                 },
                 "group_properties":{
-                    "AllowedDevTypes": group_attributes['device_type']['Gateways','AccessPoints','Switches','SD_WAN_Gateway'],
-                    "Architecture": group_attributes['architecture']['Instant','AOS10','SD_WAN_Gateway'],
-                    "ApNetworkRole": group_attributes['ap_role']['group_properties']['Standard','Microbranch'],
-                    "GwNetworkRole": group_attributes['gw_role']['Branchgateway','VPNConcentrator','WLANGateway'],
-                    "AllowedSwitchTypes": group_attributes['switch_type']['group_properties']['AOS_S','AOS_CX'],
-                    "MonitorOnly:": group_attributes['monitor_mode']['group_propeties']['AOS_S','AOS_CX'],
-                    "NewCentral": group_attributes['new_central']['group_properties']['True','False']
+                    "AllowedDevTypes": group_attributes['device_type'],
+                    "Architecture": group_attributes['architecture'],
+                    "ApNetworkRole": group_attributes['ap_role'],
+                    "GwNetworkRole": group_attributes['gw_role'],
+                    "AllowedSwitchTypes": group_attributes['switch_type'],
+                    "MonitorOnly:": group_attributes['monitor_mode'],
+                    "NewCentral": group_attributes['new_central']
                 }
                 }}
         headers = central_api.get_headers(False, "post")
-        result = central_api.post(path=path, headers=headers, data=data)
+        result = central_api.post(path=path, headers=headers, data=remove_nulls(data))
         return result
     return error_msg("create")
 
@@ -273,6 +280,7 @@ def delete_group(central_api, group_name):
     return error_msg("delete")
 
 
+
 def api_call(module):
     '''
     Uses playbook parameters to determine type of API request to be made
@@ -297,7 +305,7 @@ def api_call(module):
 
     elif action == "create":
         result = create_group(central_api, group_name, group_attributes)
-
+    
     elif action == "update":
         result = update_group(central_api, group_name, group_attributes)
 
@@ -327,9 +335,30 @@ def main():
             offset=dict(required=False, type='int', default=0),
             group_list=dict(required=False, type='list'),
             group_name=dict(required=False, type='str'),
-            group_attributes=dict(required=False, type='dict'),
+            group_attributes=dict(
+                type="dict",
+                apply_defaults=True,
+                options=dict(
+                    template_info=dict(
+                        type="dict",
+                        apply_defaults=True,
+                        options=dict(
+                            wireless=dict(type="bool", default=False, required=False),
+                            wired=dict(type="bool", default=False, required=False),
+                        ),
+                    ),
+                    architecture=dict(type="str", choices=["Instant", "AOS10", "SD_WAN_Gateway"], required=False),
+                    device_type=dict(type="list", choices=["Gateways", "AccessPoints", "Switches", "SD_WAN_Gateway"], required=True),
+                    ap_role=dict(type="str", choices=["Standard", "Microbranch"], required=False),
+                    gw_role=dict(type="str", choices=["Branchgateway", "VPNConcentrator", "WLANGateway"], required=False),
+                    switch_type=dict(type="list", choices=["AOS_S", "AOS_CX"], required=False),
+                    monitor_mode=dict(type="list", choices=["AOS_S", "AOS_CX"], required=False),
+                    new_central=dict(type="str", choices=["True", "False"], required=False),
+                ),
+            ),
             clone_from_group=dict(required=False, type='str')
-            ))
+        )
+    )
 
     success_codes = [200, 201]
     exit_codes = [304, 400, 404]
@@ -337,7 +366,6 @@ def main():
     if "get" not in module.params.get('action'):
         changed = True
     result = api_call(module)
-
     try:
         result['resp'] = json.loads(result['resp'])
     except (TypeError, ValueError):
